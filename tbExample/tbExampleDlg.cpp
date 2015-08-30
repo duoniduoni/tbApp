@@ -333,7 +333,7 @@ void * thread_fun(void * param)
 		break;
 	}
 
-	stroutput = entrySearchResultActivity((char *)device.c_str(), dlg->m_describe.GetBuffer(0), dlg->m_address.GetBuffer(0), dlg->m_price, dlg->m_postfee);
+	stroutput = entrySearchResultActivity((char *)device.c_str(), dlg->m_describe.GetBuffer(0), dlg->m_address.IsEmpty() ? NULL:dlg->m_address.GetBuffer(0), dlg->m_price, dlg->m_postfee);
 	updateOutput((char *)device.c_str(), "entrySearchResultActivity", stroutput);
 	if(strncmp(stroutput, "good", 4) != 0)
 	{
