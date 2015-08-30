@@ -4,7 +4,8 @@
 
 #pragma once
 #include "afxwin.h"
-
+#include "afxcmn.h"
+#include <list>
 
 // CtbExampleDlg 对话框
 class CtbExampleDlg : public CDialogEx
@@ -23,6 +24,7 @@ public:
 // 实现
 protected:
 	HICON m_hIcon;
+	std::list<std::string> m_devicelist;
 
 	// 生成的消息映射函数
 	virtual BOOL OnInitDialog();
@@ -41,4 +43,7 @@ public:
 	void updateOutput(char * str);
 	void begin_makemonkey(void);
 	void end_makemonkey(void);
+	CListCtrl m_listCtrl;
+	void updateDeviceList(void);
+	afx_msg void OnBnClickedButton1();
 };

@@ -73,6 +73,7 @@ void CtbExampleDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_EDIT4, m_set);
 	DDV_MinMaxInt(pDX, m_set, 1, 60);
 	DDX_Control(pDX, IDC_LIST1, m_output);
+	DDX_Control(pDX, IDC_LIST3, m_listCtrl);
 }
 
 BEGIN_MESSAGE_MAP(CtbExampleDlg, CDialogEx)
@@ -80,6 +81,7 @@ BEGIN_MESSAGE_MAP(CtbExampleDlg, CDialogEx)
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
 	ON_BN_CLICKED(IDOK, &CtbExampleDlg::OnBnClickedOk)
+	ON_BN_CLICKED(IDC_BUTTON1, &CtbExampleDlg::OnBnClickedButton1)
 END_MESSAGE_MAP()
 
 
@@ -122,6 +124,23 @@ BOOL CtbExampleDlg::OnInitDialog()
 	m_set = 10;
 
 	UpdateData(FALSE);
+
+
+	LONG lStyle;
+	lStyle = GetWindowLong(m_listCtrl.m_hWnd, GWL_STYLE);//获取当前窗口style
+	lStyle &= ~LVS_TYPEMASK; //清除显示方式位
+	lStyle |= LVS_REPORT; //设置style
+	SetWindowLong(m_listCtrl.m_hWnd, GWL_STYLE, lStyle);//设置style
+
+	DWORD dwStyle = m_listCtrl.GetExtendedStyle();
+	dwStyle |= LVS_EX_FULLROWSELECT;//选中某行使整行高亮（只适用与report风格的listctrl）
+	dwStyle |= LVS_EX_GRIDLINES;//网格线（只适用与report风格的listctrl）
+	dwStyle |= LVS_EX_CHECKBOXES;//item前生成checkbox控件
+	m_listCtrl.SetExtendedStyle(dwStyle); //设置扩展风格
+
+	m_listCtrl.InsertColumn( 0, "设备串号", LVCFMT_LEFT, 226 );//插入列
+
+	updateDeviceList();
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -179,6 +198,7 @@ typedef char * (*fun1)();
 typedef char * (*fun2)(char *);
 typedef char * (*fun3)(int);
 typedef int (*fun4)();
+typedef int (* getDevices)(std::list<std::string> * );
 
 void updateOutput(char * str, char * str2)
 {
@@ -405,4 +425,53 @@ void CtbExampleDlg::begin_makemonkey(void)
 void CtbExampleDlg::end_makemonkey(void)
 {
 	GetDlgItem(IDOK)->EnableWindow(TRUE);
+}
+
+
+void CtbExampleDlg::updateDeviceList(void)
+{
+	m_devicelist.clear();
+	m_listCtrl.DeleteAllItems();
+
+	char curpath[MAX_PATH] = {0};
+	GetCurrentDirectory(MAX_PATH, curpath);
+
+	//构造动态库地址
+	char dllpath[MAX_PATH] = {0};
+	sprintf_s(dllpath, MAX_PATH, "%s\\tbInterface.dll", curpath);
+	HMODULE handle = ::LoadLibrary(dllpath);
+	if(handle == NULL)
+	{
+		AfxMessageBox("动态库加载失败！");
+		return ;
+	}
+
+	getDevices gd = (getDevices)::GetProcAddress(handle, "getDevices");
+	if(gd == NULL)
+	{
+		AfxMessageBox("getDevices 获取失败！");
+		return ;
+	}
+
+	int ret = gd(&m_devicelist);
+	if(ret < 0)
+	{
+		CString tmp;
+		tmp.Format("getDevices 返回失败！ret = %d", ret);
+		AfxMessageBox(tmp);
+
+		return ;
+	}
+
+	std::list<std::string>::iterator it = m_devicelist.begin();
+	for(int i = 0; i < (int)m_devicelist.size(); i++, it++)
+		m_listCtrl.InsertItem(i, (*it).c_str());//插入行
+
+	::FreeLibrary(handle);
+}
+
+
+void CtbExampleDlg::OnBnClickedButton1()
+{
+	updateDeviceList();
 }
