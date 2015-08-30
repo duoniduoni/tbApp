@@ -56,6 +56,9 @@ CtbExampleDlg::CtbExampleDlg(CWnd* pParent /*=NULL*/)
 	, m_describe(_T(""))
 	, m_sct(0)
 	, m_set(0)
+	, m_address(_T(""))
+	, m_price(0)
+	, m_postfee(0)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -74,6 +77,9 @@ void CtbExampleDlg::DoDataExchange(CDataExchange* pDX)
 	DDV_MinMaxInt(pDX, m_set, 1, 60);
 	DDX_Control(pDX, IDC_LIST1, m_output);
 	DDX_Control(pDX, IDC_LIST3, m_listCtrl);
+	DDX_Text(pDX, IDC_EDIT5, m_address);
+	DDX_Text(pDX, IDC_EDIT6, m_price);
+	DDX_Text(pDX, IDC_EDIT7, m_postfee);
 }
 
 BEGIN_MESSAGE_MAP(CtbExampleDlg, CDialogEx)
@@ -122,6 +128,8 @@ BOOL CtbExampleDlg::OnInitDialog()
 	m_ieoc = TRUE;
 	m_sct = 20;
 	m_set = 10;
+	m_address = "";
+	m_postfee = m_price = -1;
 
 	UpdateData(FALSE);
 
@@ -141,6 +149,8 @@ BOOL CtbExampleDlg::OnInitDialog()
 	m_listCtrl.InsertColumn( 0, "设备串号", LVCFMT_LEFT, 226 );//插入列
 
 	updateDeviceList();
+
+	::InitializeCriticalSection(&lock); 
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -194,18 +204,19 @@ HCURSOR CtbExampleDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
-typedef char * (*fun1)();
-typedef char * (*fun2)(char *);
-typedef char * (*fun3)(int);
-typedef int (*fun4)();
+typedef char * (*fun1)(char *);
+typedef char * (*fun2)(char *, char *);
+typedef char * (*fun3)(char *, int);
+typedef int (*fun4)(char *);
+typedef char * (*fun5)(char * device, char * arg, char * address, float price, float postfee);
 typedef int (* getDevices)(std::list<std::string> * );
 
-void updateOutput(char * str, char * str2)
+void updateOutput(char * device, char * str, char * str2)
 {
 	CtbExampleDlg * dlg = (CtbExampleDlg*)AfxGetApp()->GetMainWnd();
 
 	char tmp[256] = {0};
-	sprintf_s(tmp, 256, "%s -> result : %s", str, str2);
+	sprintf_s(tmp, 256, "%s:%s -> result : %s", device, str, str2);
 
 	dlg->updateOutput(tmp);
 }
@@ -214,8 +225,21 @@ void * thread_fun(void * param)
 {
 	CtbExampleDlg * dlg = (CtbExampleDlg*)AfxGetApp()->GetMainWnd();
 	dlg->UpdateData();
-
 	dlg->begin_makemonkey();
+
+	int index = (int)param;
+	if((int)dlg->m_devicelist.size() <= index)
+	{
+		AfxMessageBox(" 找不到设备串号！");
+
+		dlg->end_makemonkey();
+	}
+
+	std::string device;
+	int i = 0;
+	for(std::list<std::string>::iterator it = dlg->m_devicelist.begin(); it != dlg->m_devicelist.end(); it++, i++)
+		if(index == i)
+			device = *it;
 
 	char curpath[MAX_PATH] = {0};
 	GetCurrentDirectory(MAX_PATH, curpath);
@@ -239,7 +263,7 @@ void * thread_fun(void * param)
 	fun1 stopTaobao = (fun1)::GetProcAddress(handle, "stopTaobao");
 	fun1 entryMainActivity = (fun1)::GetProcAddress(handle, "entryMainActivity");
 	fun2 entrySearchConditionActivity = (fun2)::GetProcAddress(handle, "entrySearchConditionActivity");
-	fun2 entrySearchResultActivity = (fun2)::GetProcAddress(handle, "entrySearchResultActivity");
+	fun5 entrySearchResultActivity = (fun5)::GetProcAddress(handle, "entrySearchResultActivity");
 	fun3 entryCommodityActivity = (fun3)::GetProcAddress(handle, "entryCommodityActivity");
 	fun3 entryEvaluationActivity = (fun3)::GetProcAddress(handle, "entryEvaluationActivity");
 	fun1 entryCommodityActivityRandomly = (fun1)::GetProcAddress(handle, "entryCommodityActivityRandomly");
@@ -274,123 +298,123 @@ void * thread_fun(void * param)
 		return 0;
 	}
 
-	initial();
+	initial((char *)device.c_str());
 
-	stroutput = startTaobao();
-	updateOutput("startTaobao", stroutput);
+	stroutput = startTaobao((char *)device.c_str());
+	updateOutput((char *)device.c_str(), "startTaobao", stroutput);
 
 	do
 	{
-	stroutput = entryMainActivity();
-	updateOutput("entryMainActivity", stroutput);
+	stroutput = entryMainActivity((char *)device.c_str());
+	updateOutput((char *)device.c_str(), "entryMainActivity", stroutput);
 	if(strncmp(stroutput, "good", 4) != 0)
 	{
-		updateOutput("ERROR ", "break process!");
+		updateOutput((char *)device.c_str(), "ERROR ", "break process!");
 		break;
 	}
 
-	stroutput = entrySearchConditionActivity(dlg->m_search.GetBuffer(0));
-	updateOutput("entrySearchConditionActivity", stroutput);
+	stroutput = entrySearchConditionActivity((char *)device.c_str(), dlg->m_search.GetBuffer(0));
+	updateOutput((char *)device.c_str(), "entrySearchConditionActivity", stroutput);
 	if(strncmp(stroutput, "good", 4) != 0)
 	{
-		updateOutput("ERROR ", "break process!");
+		updateOutput((char *)device.c_str(), "ERROR ", "break process!");
 		break;
 	}
 
-	stroutput = entrySearchResultActivity(dlg->m_describe.GetBuffer(0));
-	updateOutput("entrySearchResultActivity", stroutput);
+	stroutput = entrySearchResultActivity((char *)device.c_str(), dlg->m_describe.GetBuffer(0), dlg->m_address.GetBuffer(0), dlg->m_price, dlg->m_postfee);
+	updateOutput((char *)device.c_str(), "entrySearchResultActivity", stroutput);
 	if(strncmp(stroutput, "good", 4) != 0)
 	{
-		updateOutput("ERROR ", "break process!");
+		updateOutput((char *)device.c_str(), "ERROR ", "break process!");
 		break;
 	}
 
-	stroutput = entryCommodityActivity(dlg->m_sct);
-	updateOutput("entryCommodityActivity", stroutput);
+	stroutput = entryCommodityActivity((char *)device.c_str(), dlg->m_sct);
+	updateOutput((char *)device.c_str(), "entryCommodityActivity", stroutput);
 	if(strncmp(stroutput, "good", 4) != 0)
 	{
-		updateOutput("ERROR ", "break process!");
+		updateOutput((char *)device.c_str(), "ERROR ", "break process!");
 		break;
 	}
 
-	stroutput = entryEvaluationActivity(dlg->m_set);
-	updateOutput("entryEvaluationActivity", stroutput);
+	stroutput = entryEvaluationActivity((char *)device.c_str(), dlg->m_set);
+	updateOutput((char *)device.c_str(), "entryEvaluationActivity", stroutput);
 	if(strncmp(stroutput, "good", 4) != 0)
 	{
-		updateOutput("ERROR ", "break process!");
+		updateOutput((char *)device.c_str(), "ERROR ", "break process!");
 		break;
 	}
 
 	if(dlg->m_ieoc)
 	{
-		stroutput = entryCommodityActivityRandomly();
-		updateOutput("entryCommodityActivityRandomly", stroutput);
+		stroutput = entryCommodityActivityRandomly((char *)device.c_str());
+		updateOutput((char *)device.c_str(), "entryCommodityActivityRandomly", stroutput);
 		if(strncmp(stroutput, "good", 4) != 0)
 		{
-			updateOutput("ERROR ", "break process!");
+			updateOutput((char *)device.c_str(), "ERROR ", "break process!");
 			break;
 		}
 
-		stroutput = entryCommodityActivity(2);
-		updateOutput("entryCommodityActivity", stroutput);
+		stroutput = entryCommodityActivity((char *)device.c_str(), 2);
+		updateOutput((char *)device.c_str(), "entryCommodityActivity", stroutput);
 		if(strncmp(stroutput, "good", 4) != 0)
 		{
-			updateOutput("ERROR ", "break process!");
+			updateOutput((char *)device.c_str(), "ERROR ", "break process!");
 			break;
 		}
 
-		stroutput = exitCommodityActivity();
-		updateOutput("exitCommodityActivity", stroutput);
+		stroutput = exitCommodityActivity((char *)device.c_str());
+		updateOutput((char *)device.c_str(), "exitCommodityActivity", stroutput);
 		if(strncmp(stroutput, "good", 4) != 0)
 		{
-			updateOutput("ERROR ", "break process!");
+			updateOutput((char *)device.c_str(), "ERROR ", "break process!");
 			break;
 		}
 
-		stroutput = exitShopActivity();
-		updateOutput("exitShopActivity", stroutput);
+		stroutput = exitShopActivity((char *)device.c_str());
+		updateOutput((char *)device.c_str(), "exitShopActivity", stroutput);
 		if(strncmp(stroutput, "good", 4) != 0)
 		{
-			updateOutput("ERROR ", "break process!");
+			updateOutput((char *)device.c_str(), "ERROR ", "break process!");
 			break;
 		}
 	}
 
-	stroutput = exitCommodityActivity();
-	updateOutput("exitCommodityActivity", stroutput);
+	stroutput = exitCommodityActivity((char *)device.c_str());
+	updateOutput((char *)device.c_str(), "exitCommodityActivity", stroutput);
 	if(strncmp(stroutput, "good", 4) != 0)
 	{
-		updateOutput("ERROR ", "break process!");
+		updateOutput((char *)device.c_str(), "ERROR ", "break process!");
 		break;
 	}
 
-	stroutput = exitSearchResultActivity();
-	updateOutput("exitSearchResultActivity", stroutput);
+	stroutput = exitSearchResultActivity((char *)device.c_str());
+	updateOutput((char *)device.c_str(), "exitSearchResultActivity", stroutput);
 	if(strncmp(stroutput, "good", 4) != 0)
 	{
-		updateOutput("ERROR ", "break process!");
+		updateOutput((char *)device.c_str(), "ERROR ", "break process!");
 		break;
 	}
 
-	stroutput = exitSearchConditionActivity();
-	updateOutput("exitSearchConditionActivity", stroutput);
+	stroutput = exitSearchConditionActivity((char *)device.c_str());
+	updateOutput((char *)device.c_str(), "exitSearchConditionActivity", stroutput);
 	if(strncmp(stroutput, "good", 4) != 0)
 	{
-		updateOutput("ERROR ", "break process!");
+		updateOutput((char *)device.c_str(), "ERROR ", "break process!");
 		break;
 	}
 
-	stroutput = exitMainActivity();
-	updateOutput("exitMainActivity", stroutput);
+	stroutput = exitMainActivity((char *)device.c_str());
+	updateOutput((char *)device.c_str(), "exitMainActivity", stroutput);
 	if(strncmp(stroutput, "good", 4) != 0)
 	{
-		updateOutput("ERROR ", "break process!");
+		updateOutput((char *)device.c_str(), "ERROR ", "break process!");
 		break;
 	}
 	}while(false);
 
-	stroutput = stopTaobao();
-	updateOutput("stopTaobao", stroutput);
+	stroutput = stopTaobao((char *)device.c_str());
+	updateOutput((char *)device.c_str(), "stopTaobao", stroutput);
 
 	::FreeLibrary(handle);
 
@@ -402,12 +426,42 @@ void * thread_fun(void * param)
 void CtbExampleDlg::OnBnClickedOk()
 {
 	UpdateData();
+	updateDeviceList();
 	
-	::CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)thread_fun, 0, 0, 0);
-	
-//	CDialogEx::OnOK();
+	resetRef();
+	for(int i = 0; i < (int)m_devicelist.size(); i++)
+		::CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)thread_fun, (void *)i, 0, 0);
 }
 
+void CtbExampleDlg::resetRef()
+{
+	::EnterCriticalSection(&lock);
+	ref = 0;
+	::LeaveCriticalSection(&lock);
+}
+void CtbExampleDlg::incRef()
+{
+	::EnterCriticalSection(&lock);
+	ref ++;
+	::LeaveCriticalSection(&lock);
+}
+
+void CtbExampleDlg::decRef()
+{
+	::EnterCriticalSection(&lock);
+	ref --;
+	::LeaveCriticalSection(&lock);
+}
+
+int CtbExampleDlg::getRef()
+{
+	int val = 0;
+	::EnterCriticalSection(&lock);
+	val = ref;
+	::LeaveCriticalSection(&lock);
+
+	return val;
+}
 
 void CtbExampleDlg::updateOutput(char * str)
 {
@@ -418,13 +472,19 @@ void CtbExampleDlg::updateOutput(char * str)
 
 void CtbExampleDlg::begin_makemonkey(void)
 {
-	GetDlgItem(IDOK)->EnableWindow(FALSE);
+	incRef();
+
+	if(getRef() > 0)
+		GetDlgItem(IDOK)->EnableWindow(FALSE);
 }
 
 
 void CtbExampleDlg::end_makemonkey(void)
 {
-	GetDlgItem(IDOK)->EnableWindow(TRUE);
+	decRef();
+
+	if(getRef() == 0)
+		GetDlgItem(IDOK)->EnableWindow(TRUE);
 }
 
 

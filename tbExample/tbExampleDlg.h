@@ -24,7 +24,6 @@ public:
 // 实现
 protected:
 	HICON m_hIcon;
-	std::list<std::string> m_devicelist;
 
 	// 生成的消息映射函数
 	virtual BOOL OnInitDialog();
@@ -46,4 +45,15 @@ public:
 	CListCtrl m_listCtrl;
 	void updateDeviceList(void);
 	afx_msg void OnBnClickedButton1();
+	CString m_address;
+	float m_price;
+	float m_postfee;
+	std::list<std::string> m_devicelist;
+
+	CRITICAL_SECTION lock;
+	int ref;
+	void resetRef();
+	void incRef();
+	void decRef();
+	int getRef();
 };
