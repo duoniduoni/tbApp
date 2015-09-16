@@ -56,4 +56,5 @@ public:
 	void incRef();
 	void decRef();
 	int getRef();
+	int m_sct2;
 };

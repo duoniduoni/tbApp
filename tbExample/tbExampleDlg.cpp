@@ -59,6 +59,7 @@ CtbExampleDlg::CtbExampleDlg(CWnd* pParent /*=NULL*/)
 	, m_address(_T(""))
 	, m_price(0)
 	, m_postfee(0)
+	, m_sct2(0)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -80,6 +81,8 @@ void CtbExampleDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_EDIT5, m_address);
 	DDX_Text(pDX, IDC_EDIT6, m_price);
 	DDX_Text(pDX, IDC_EDIT7, m_postfee);
+	DDX_Text(pDX, IDC_EDIT8, m_sct2);
+	DDV_MinMaxInt(pDX, m_sct2, 0, 100);
 }
 
 BEGIN_MESSAGE_MAP(CtbExampleDlg, CDialogEx)
@@ -210,6 +213,7 @@ typedef char * (*fun3)(char *, int);
 typedef int (*fun4)(char *);
 typedef char * (*fun5)(char * device, char * arg, char * address, float price, float postfee);
 typedef int (* getDevices)(std::list<std::string> * );
+typedef bool (* fun6)(char * device);
 
 void updateOutput(char * device, char * str, char * str2)
 {
@@ -272,6 +276,7 @@ void * thread_fun(void * param)
 	fun1 exitSearchResultActivity = (fun1)::GetProcAddress(handle, "exitSearchResultActivity");
 	fun1 exitSearchConditionActivity = (fun1)::GetProcAddress(handle, "exitSearchConditionActivity");
 	fun1 exitMainActivity = (fun1)::GetProcAddress(handle, "exitMainActivity");
+	fun6 isInstallSpecialInput = (fun6)::GetProcAddress(handle, "isInstallSpecialInput");
 
 	if( 
 		!initial ||
@@ -287,7 +292,8 @@ void * thread_fun(void * param)
 		!exitShopActivity ||
 		!exitSearchResultActivity ||
 		!exitSearchConditionActivity ||
-		!exitMainActivity
+		!exitMainActivity ||
+		!isInstallSpecialInput
 		)
 	{
 		AfxMessageBox("函数初始化失败！");
@@ -305,6 +311,12 @@ void * thread_fun(void * param)
 
 	do
 	{
+	if(!isInstallSpecialInput((char *)device.c_str()))
+	{
+		updateOutput((char *)device.c_str(), "ERROR ", "未安装专用输入法!");
+		break;
+	}
+	
 	stroutput = entryMainActivity((char *)device.c_str());
 	updateOutput((char *)device.c_str(), "entryMainActivity", stroutput);
 	if(strncmp(stroutput, "good", 4) != 0)
@@ -355,7 +367,7 @@ void * thread_fun(void * param)
 			break;
 		}
 
-		stroutput = entryCommodityActivity((char *)device.c_str(), 2);
+		stroutput = entryCommodityActivity((char *)device.c_str(), dlg->m_sct2);
 		updateOutput((char *)device.c_str(), "entryCommodityActivity", stroutput);
 		if(strncmp(stroutput, "good", 4) != 0)
 		{
