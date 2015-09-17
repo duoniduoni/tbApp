@@ -131,6 +131,7 @@ BOOL CtbExampleDlg::OnInitDialog()
 	m_ieoc = TRUE;
 	m_sct = 20;
 	m_set = 10;
+	m_sct2 = 10;
 	m_address = "";
 	m_postfee = m_price = -1;
 
@@ -311,11 +312,15 @@ void * thread_fun(void * param)
 
 	do
 	{
+	updateOutput((char *)device.c_str(), "ERROR ", "检测专用输入法是否安装!");
 	if(!isInstallSpecialInput((char *)device.c_str()))
 	{
 		updateOutput((char *)device.c_str(), "ERROR ", "未安装专用输入法!");
 		break;
 	}
+	else
+		updateOutput((char *)device.c_str(), "ERROR ", "专用输入法已安装!");
+	
 	
 	stroutput = entryMainActivity((char *)device.c_str());
 	updateOutput((char *)device.c_str(), "entryMainActivity", stroutput);
