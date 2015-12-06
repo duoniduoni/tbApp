@@ -60,6 +60,7 @@ CtbExampleDlg::CtbExampleDlg(CWnd* pParent /*=NULL*/)
 	, m_price(0)
 	, m_postfee(0)
 	, m_sct2(0)
+	, m_times(0)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -83,6 +84,8 @@ void CtbExampleDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_EDIT7, m_postfee);
 	DDX_Text(pDX, IDC_EDIT8, m_sct2);
 	DDV_MinMaxInt(pDX, m_sct2, 0, 100);
+	DDX_Text(pDX, IDC_EDIT9, m_times);
+	DDV_MinMaxUInt(pDX, m_times, 1, 1000);
 }
 
 BEGIN_MESSAGE_MAP(CtbExampleDlg, CDialogEx)
@@ -134,6 +137,7 @@ BOOL CtbExampleDlg::OnInitDialog()
 	m_sct2 = 10;
 	m_address = "";
 	m_postfee = m_price = -1;
+	m_times = 1;
 
 	UpdateData(FALSE);
 
@@ -212,7 +216,7 @@ typedef char * (*fun1)(char *);
 typedef char * (*fun2)(char *, char *);
 typedef char * (*fun3)(char *, int);
 typedef int (*fun4)(char *);
-typedef char * (*fun5)(char * device, char * arg, char * address, float price, float postfee);
+typedef char * (*fun5)(char * device, char * arg, char * address, float price, float postfee, bool go_on);
 typedef int (* getDevices)(std::list<std::string> * );
 typedef bool (* fun6)(char * device);
 
@@ -307,131 +311,138 @@ void * thread_fun(void * param)
 
 	initial((char *)device.c_str());
 
-	stroutput = startTaobao((char *)device.c_str());
-	updateOutput((char *)device.c_str(), "startTaobao", stroutput);
-
-	do
-	{
 	updateOutput((char *)device.c_str(), "ERROR ", "检测专用输入法是否安装!");
 	if(!isInstallSpecialInput((char *)device.c_str()))
 	{
 		updateOutput((char *)device.c_str(), "ERROR ", "未安装专用输入法!");
-		break;
+		return 0;
 	}
-	else
-		updateOutput((char *)device.c_str(), "ERROR ", "专用输入法已安装!");
-	
-	
-	stroutput = entryMainActivity((char *)device.c_str());
-	updateOutput((char *)device.c_str(), "entryMainActivity", stroutput);
-	if(strncmp(stroutput, "good", 4) != 0)
+	updateOutput((char *)device.c_str(), "ERROR ", "专用输入法已安装!");
+
+	UINT times = dlg->m_times;
+	while(times --)
 	{
-		updateOutput((char *)device.c_str(), "ERROR ", "break process!");
-		break;
+		do
+		{	
+			stroutput = startTaobao((char *)device.c_str());
+			updateOutput((char *)device.c_str(), "startTaobao", stroutput);
+			if(strncmp(stroutput, "good", 4) != 0)
+			{
+				updateOutput((char *)device.c_str(), "ERROR ", "break process!");
+				break;
+			}
+
+			stroutput = entryMainActivity((char *)device.c_str());
+			updateOutput((char *)device.c_str(), "entryMainActivity", stroutput);
+			if(strncmp(stroutput, "good", 4) != 0)
+			{
+				updateOutput((char *)device.c_str(), "ERROR ", "break process!");
+				break;
+			}
+
+			stroutput = entrySearchConditionActivity((char *)device.c_str(), dlg->m_search.GetBuffer(0));
+			updateOutput((char *)device.c_str(), "entrySearchConditionActivity", stroutput);
+			if(strncmp(stroutput, "good", 4) != 0)
+			{
+				updateOutput((char *)device.c_str(), "ERROR ", "break process!");
+				break;
+			}
+
+			stroutput = entrySearchResultActivity((char *)device.c_str(), dlg->m_describe.GetBuffer(0), dlg->m_address.IsEmpty() ? NULL:dlg->m_address.GetBuffer(0), dlg->m_price, dlg->m_postfee, true);
+			updateOutput((char *)device.c_str(), "entrySearchResultActivity", stroutput);
+			if(strncmp(stroutput, "good", 4) != 0)
+			{
+				updateOutput((char *)device.c_str(), "ERROR ", "break process!");
+				break;
+			}
+
+			stroutput = entryCommodityActivity((char *)device.c_str(), dlg->m_sct);
+			updateOutput((char *)device.c_str(), "entryCommodityActivity", stroutput);
+			if(strncmp(stroutput, "good", 4) != 0)
+			{
+				updateOutput((char *)device.c_str(), "ERROR ", "break process!");
+				break;
+			}
+
+			stroutput = entryEvaluationActivity((char *)device.c_str(), dlg->m_set);
+			updateOutput((char *)device.c_str(), "entryEvaluationActivity", stroutput);
+			if(strncmp(stroutput, "good", 4) != 0)
+			{
+				updateOutput((char *)device.c_str(), "ERROR ", "break process!");
+				break;
+			}
+
+			if(dlg->m_ieoc)
+			{
+				stroutput = entryCommodityActivityRandomly((char *)device.c_str());
+				updateOutput((char *)device.c_str(), "entryCommodityActivityRandomly", stroutput);
+				if(strncmp(stroutput, "good", 4) != 0)
+				{
+					updateOutput((char *)device.c_str(), "ERROR ", "break process!");
+					break;
+				}
+
+				stroutput = entryCommodityActivity((char *)device.c_str(), dlg->m_sct2);
+				updateOutput((char *)device.c_str(), "entryCommodityActivity", stroutput);
+				if(strncmp(stroutput, "good", 4) != 0)
+				{
+					updateOutput((char *)device.c_str(), "ERROR ", "break process!");
+					break;
+				}
+
+				stroutput = exitCommodityActivity((char *)device.c_str());
+				updateOutput((char *)device.c_str(), "exitCommodityActivity", stroutput);
+				if(strncmp(stroutput, "good", 4) != 0)
+				{
+					updateOutput((char *)device.c_str(), "ERROR ", "break process!");
+					break;
+				}
+
+				stroutput = exitShopActivity((char *)device.c_str());
+				updateOutput((char *)device.c_str(), "exitShopActivity", stroutput);
+				if(strncmp(stroutput, "good", 4) != 0)
+				{
+					updateOutput((char *)device.c_str(), "ERROR ", "break process!");
+					break;
+				}
+			}
+
+			stroutput = exitCommodityActivity((char *)device.c_str());
+			updateOutput((char *)device.c_str(), "exitCommodityActivity", stroutput);
+			if(strncmp(stroutput, "good", 4) != 0)
+			{
+				updateOutput((char *)device.c_str(), "ERROR ", "break process!");
+				break;
+			}
+
+			stroutput = exitSearchResultActivity((char *)device.c_str());
+			updateOutput((char *)device.c_str(), "exitSearchResultActivity", stroutput);
+			if(strncmp(stroutput, "good", 4) != 0)
+			{
+				updateOutput((char *)device.c_str(), "ERROR ", "break process!");
+				break;
+			}
+
+			stroutput = exitSearchConditionActivity((char *)device.c_str());
+			updateOutput((char *)device.c_str(), "exitSearchConditionActivity", stroutput);
+			if(strncmp(stroutput, "good", 4) != 0)
+			{
+				updateOutput((char *)device.c_str(), "ERROR ", "break process!");
+				break;
+			}
+
+			stroutput = exitMainActivity((char *)device.c_str());
+			updateOutput((char *)device.c_str(), "exitMainActivity", stroutput);
+			if(strncmp(stroutput, "good", 4) != 0)
+			{
+				updateOutput((char *)device.c_str(), "ERROR ", "break process!");
+				break;
+			}
+		}while(false);
+
+		stroutput = stopTaobao((char *)device.c_str());
+		updateOutput((char *)device.c_str(), "stopTaobao", stroutput);
 	}
-
-	stroutput = entrySearchConditionActivity((char *)device.c_str(), dlg->m_search.GetBuffer(0));
-	updateOutput((char *)device.c_str(), "entrySearchConditionActivity", stroutput);
-	if(strncmp(stroutput, "good", 4) != 0)
-	{
-		updateOutput((char *)device.c_str(), "ERROR ", "break process!");
-		break;
-	}
-
-	stroutput = entrySearchResultActivity((char *)device.c_str(), dlg->m_describe.GetBuffer(0), dlg->m_address.IsEmpty() ? NULL:dlg->m_address.GetBuffer(0), dlg->m_price, dlg->m_postfee);
-	updateOutput((char *)device.c_str(), "entrySearchResultActivity", stroutput);
-	if(strncmp(stroutput, "good", 4) != 0)
-	{
-		updateOutput((char *)device.c_str(), "ERROR ", "break process!");
-		break;
-	}
-
-	stroutput = entryCommodityActivity((char *)device.c_str(), dlg->m_sct);
-	updateOutput((char *)device.c_str(), "entryCommodityActivity", stroutput);
-	if(strncmp(stroutput, "good", 4) != 0)
-	{
-		updateOutput((char *)device.c_str(), "ERROR ", "break process!");
-		break;
-	}
-
-	stroutput = entryEvaluationActivity((char *)device.c_str(), dlg->m_set);
-	updateOutput((char *)device.c_str(), "entryEvaluationActivity", stroutput);
-	if(strncmp(stroutput, "good", 4) != 0)
-	{
-		updateOutput((char *)device.c_str(), "ERROR ", "break process!");
-		break;
-	}
-
-	if(dlg->m_ieoc)
-	{
-		stroutput = entryCommodityActivityRandomly((char *)device.c_str());
-		updateOutput((char *)device.c_str(), "entryCommodityActivityRandomly", stroutput);
-		if(strncmp(stroutput, "good", 4) != 0)
-		{
-			updateOutput((char *)device.c_str(), "ERROR ", "break process!");
-			break;
-		}
-
-		stroutput = entryCommodityActivity((char *)device.c_str(), dlg->m_sct2);
-		updateOutput((char *)device.c_str(), "entryCommodityActivity", stroutput);
-		if(strncmp(stroutput, "good", 4) != 0)
-		{
-			updateOutput((char *)device.c_str(), "ERROR ", "break process!");
-			break;
-		}
-
-		stroutput = exitCommodityActivity((char *)device.c_str());
-		updateOutput((char *)device.c_str(), "exitCommodityActivity", stroutput);
-		if(strncmp(stroutput, "good", 4) != 0)
-		{
-			updateOutput((char *)device.c_str(), "ERROR ", "break process!");
-			break;
-		}
-
-		stroutput = exitShopActivity((char *)device.c_str());
-		updateOutput((char *)device.c_str(), "exitShopActivity", stroutput);
-		if(strncmp(stroutput, "good", 4) != 0)
-		{
-			updateOutput((char *)device.c_str(), "ERROR ", "break process!");
-			break;
-		}
-	}
-
-	stroutput = exitCommodityActivity((char *)device.c_str());
-	updateOutput((char *)device.c_str(), "exitCommodityActivity", stroutput);
-	if(strncmp(stroutput, "good", 4) != 0)
-	{
-		updateOutput((char *)device.c_str(), "ERROR ", "break process!");
-		break;
-	}
-
-	stroutput = exitSearchResultActivity((char *)device.c_str());
-	updateOutput((char *)device.c_str(), "exitSearchResultActivity", stroutput);
-	if(strncmp(stroutput, "good", 4) != 0)
-	{
-		updateOutput((char *)device.c_str(), "ERROR ", "break process!");
-		break;
-	}
-
-	stroutput = exitSearchConditionActivity((char *)device.c_str());
-	updateOutput((char *)device.c_str(), "exitSearchConditionActivity", stroutput);
-	if(strncmp(stroutput, "good", 4) != 0)
-	{
-		updateOutput((char *)device.c_str(), "ERROR ", "break process!");
-		break;
-	}
-
-	stroutput = exitMainActivity((char *)device.c_str());
-	updateOutput((char *)device.c_str(), "exitMainActivity", stroutput);
-	if(strncmp(stroutput, "good", 4) != 0)
-	{
-		updateOutput((char *)device.c_str(), "ERROR ", "break process!");
-		break;
-	}
-	}while(false);
-
-	stroutput = stopTaobao((char *)device.c_str());
-	updateOutput((char *)device.c_str(), "stopTaobao", stroutput);
 
 	::FreeLibrary(handle);
 

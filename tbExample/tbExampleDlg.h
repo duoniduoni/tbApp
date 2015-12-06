@@ -57,4 +57,5 @@ public:
 	void decRef();
 	int getRef();
 	int m_sct2;
+	UINT m_times;
 };
